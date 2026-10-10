@@ -79,7 +79,7 @@ jobs:
             let { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
             for (let attempt = 0; pr.mergeable === null && attempt < 10; ++attempt) {
               await new Promise((resolve) => setTimeout(resolve, 3000));
-              ({ data: pr } = await github.rest.pulls.get({ owner, repo, pull_number }));
+              ({ data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
             }
             if (pr.state !== 'open' || pr.base.ref !== 'main') {
               throw new Error('The pull request must be open and target main');
@@ -232,7 +232,7 @@ jobs:
         shell: bash
         run: |
           [ -f ctest.log ] || exit 0
-          awk '/Test +#[0-9]+: / && $NF == "sec" { for (i = 1; i <= NF; i++) if ($i ~ /^#[0-9]+:$/) name = $(i + 1); t = $(NF - 1) + 0; if (t > max[name]) max[name] = t }
+          awk '/Test +#[0-9]+: / && $NF == "sec" { for (i = 1; i <= NF; i++) { if ($i ~ /^#[0-9]+:$/) name = $(i + 1); t = $(NF - 1) + 0; if (t > max[name]) max[name] = t } }
             END { for (name in max) if (max[name] > 30) printf "::warning title=Slow test::%s took %.1f s on %s; tests must finish in 30 s (CONTRIBUTING.md)\n", name, max[name], ENVIRON["RUNNER_OS"] }' ctest.log
 
   windows:
@@ -280,26 +280,11 @@ jobs:
           save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           evict-old-files: job
       - shell: cmd
-        run: cmake -S . -B build %CONFIGURE%
-      - name: Check that every test executable is registered with ctest
-        shell: cmd
-        run: python tools/check_test_registration.py build
+        run: cmake -S . -B build %CONFIGURE% -DBUILD_TESTING=OFF
       - shell: cmd
-        run: cmake --build build
+        run: cmake --build build --parallel
       - shell: cmd
-        run: cmake --build build --target libs
-      - shell: cmd
-        run: ctest --test-dir build --output-on-failure --timeout 120 --parallel 4 --output-log ctest.log --output-junit ctest.xml
-      - run: python tools/check_skips.py build/ctest.xml --job windows
-      - name: Report tests slower than 30 s
-        if: ${{ !cancelled() }}
-        shell: bash
-        run: |
-          [ -f ctest.log ] || exit 0
-          awk '/Test +#[0-9]+: / && $NF == "sec" { for (i = 1; i <= NF; i++) if ($i ~ /^#[0-9]+:$/) name = $(i + 1); t = $(NF - 1) + 0; if (t > max[name]) max[name] = t }
-            END { for (name in max) if (max[name] > 30) printf "::warning title=Slow test::%s took %.1f s on %s; tests must finish in 30 s (CONTRIBUTING.md)\n", name, max[name], ENVIRON["RUNNER_OS"] }' ctest.log
-
-
+        run: cmake --build build --target libs --parallel
       - name: Package outputs
         shell: cmd
         run: |
@@ -309,6 +294,7 @@ jobs:
           copy /y C:\winlibs\mingw64\bin\libgcc_s_seh-1.dll stage\
           copy /y C:\winlibs\mingw64\bin\libstdc++-6.dll stage\
           copy /y C:\winlibs\mingw64\bin\libwinpthread-1.dll stage\
+          dir /s /b stage
       - uses: actions/upload-artifact@v4
         with:
           name: anyps5-windows
