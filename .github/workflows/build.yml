@@ -79,7 +79,7 @@ jobs:
             let { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
             for (let attempt = 0; pr.mergeable === null && attempt < 10; ++attempt) {
               await new Promise((resolve) => setTimeout(resolve, 3000));
-              ({ data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+              ({ data: pr } = await github.rest.pulls.get({ owner, repo, pull_number }));
             }
             if (pr.state !== 'open' || pr.base.ref !== 'main') {
               throw new Error('The pull request must be open and target main');
